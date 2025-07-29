@@ -15,23 +15,7 @@ n_faces <- nrow(simulated.eigenvalues)
 
 # Create a matrix for all PC scores, starting with the original ones
 all_pc_scores <- matrix(rep(pc.pcs[1,], n_faces), nrow=n_faces, byrow=TRUE)
-
-# Scale simulated values to match the range of original PC scores
-# Check the range of original first 5 PC scores
-original_range <- range(pc.pcs[,1:5])
-simulated_range <- range(simulated.eigenvalues)
-
-cat("Original PC scores range (first 5 components):", original_range, "\n")
-cat("Simulated values range:", simulated_range, "\n")
-
-# Scale simulated values to match original PC score range
-scale_factor <- diff(original_range) / diff(simulated_range)
-simulated_scaled <- (simulated.eigenvalues - min(simulated.eigenvalues)) * scale_factor + min(original_range)
-
-cat("Scaled simulated values range:", range(simulated_scaled), "\n")
-
-# Replace first 5 columns with our SCALED simulated values
-all_pc_scores[, 1:5] <- simulated_scaled
+all_pc_scores[, 1:5] <- simulated.eigenvalues
 
 # Preallocate matrix for reconstructed faces
 reconstructed_faces <- matrix(NA, nrow = n_faces, ncol = nrow(pc.eigenvectors))
@@ -56,10 +40,10 @@ plot_face <- function(face_vector, title = "Simulated Face") {
          main = title)
 }
 
-write.csv(reconstructed_faces, "processed/2000_reconstructed_faces_corrected.csv", row.names = FALSE)
+write.csv(reconstructed_faces, "processed/2000_reconstructed_faces.csv", row.names = FALSE)
 
 # Ensure the output directory exists
-output_dir <- "processed/2000_simfaces_corrected"
+output_dir <- "processed/2000_simfaces"
 if (!dir.exists(output_dir)) {
   dir.create(output_dir)
 }
