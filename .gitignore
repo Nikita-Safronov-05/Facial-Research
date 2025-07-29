@@ -19,7 +19,7 @@ __pycache__/
 # Large data directories
 given_data/
 processed/
-encoder_files/
+encoder_files/encoder_data/
 
 # IDE files
 .vscode/
