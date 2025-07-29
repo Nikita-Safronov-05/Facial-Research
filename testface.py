@@ -1,0 +1,90 @@
+import trimesh
+import numpy as np
+import matplotlib.pyplot as plt
+from collections import defaultdict
+import math
+import os
+from scipy.stats import zscore
+from scipy.ndimage import gaussian_filter1d
+# === Helper: estimate Gaussian curvature (angle deficit) ===
+def angle_at_vertex(v0, v1, v2):
+    a = v1 - v0
+    b = v2 - v0
+    cos_theta = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    return np.arccos(np.clip(cos_theta, -1.0, 1.0))
+
+def estimate_gaussian_curvature(mesh):
+    angle_sum = np.zeros(len(mesh.vertices))
+    for face in mesh.faces:
+        v0, v1, v2 = mesh.vertices[face]
+        a0 = angle_at_vertex(v0, v1, v2)
+        a1 = angle_at_vertex(v1, v2, v0)
+        a2 = angle_at_vertex(v2, v0, v1)
+        angle_sum[face[0]] += a0
+        angle_sum[face[1]] += a1
+        angle_sum[face[2]] += a2
+    return 2 * np.pi - angle_sum
+
+
+folder = 'processed/2000_simfaces_corrected'
+
+# === Loop over a few simulated faces ===
+for i in range(5, 15):  # Adjust range as needed
+    filename = f"simface_5pc_{i}.obj"
+    filepath = os.path.join(folder, filename)
+
+    print(f"\nProcessing {filename}...")
+
+    mesh = trimesh.load(filepath)
+    if not mesh.is_watertight:
+        print(" Warning: Mesh is not watertight. Curvature may be inaccurate.")
+
+    # === Estimate curvature ===
+    curvatures = estimate_gaussian_curvature(mesh)
+
+    # === Find boundary edges ===
+    edge_face_count = defaultdict(int)
+    for face in mesh.faces:
+        edges = [tuple(sorted([face[i], face[(i + 1) % 3]])) for i in range(3)]
+        for edge in edges:
+            edge_face_count[edge] += 1
+    boundary_edges = np.array([edge for edge, count in edge_face_count.items() if count == 1])
+    boundary_vertices = np.unique(boundary_edges)
+
+    # === Mask and normalize curvature ===
+    num_vertices = len(mesh.vertices)
+    interior_mask = np.ones(num_vertices, dtype=bool)
+    interior_mask[boundary_vertices] = False
+
+    interior_curvatures = np.exp(curvatures[interior_mask])
+    z = zscore(interior_curvatures)
+    
+    z = np.clip(z, -2, 2)  # clip extremes
+    norm_curv = (z - z.min()) / (np.ptp(z) + 1e-8)
+    
+    # norm_curv = 1 / (1 + np.exp(-z))  # sigmoid
+    
+    # smooth_z = np.tanh(z)
+    # norm_curv = (smooth_z + 1) / 2
+
+    # smoothed_curvatures = gaussian_filter1d(interior_curvatures, sigma=2)
+    # z = zscore(smoothed_curvatures)
+    # z = np.clip(z, -2, 2)
+    # norm_curv = (z - z.min()) / (z.ptp() + 1e-8)
+    # === Output curvature stats ===
+    print("  Curvature stats:")
+    print(f"    min:   {interior_curvatures.min():.6e}")
+    print(f"    max:   {interior_curvatures.max():.6e}")
+    print(f"    range: {np.ptp(interior_curvatures):.6e}")
+    print(f"    mean:  {interior_curvatures.mean():.6e}")
+
+    # === Color the mesh ===
+    colors = plt.cm.viridis(norm_curv)[:, :3]
+    colors_with_alpha = np.ones((colors.shape[0], 4))
+    colors_with_alpha[:, :3] = colors
+
+    mesh.visual.vertex_colors[:] = (255, 255, 255, 255)
+    mesh.visual.vertex_colors[interior_mask] = (colors_with_alpha * 255).astype(np.uint8)
+
+    # === Show interactively ===
+    mesh.show()
