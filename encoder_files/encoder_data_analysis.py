@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 pd.set_option('display.max_columns', None)
-metadata = 'encoder_data/experiment_metadata.csv'
+metadata = 'encoder_files/old_encoder_data/experiment_metadata.csv'
 df = pd.read_csv(metadata)
 
 # Columns to use as the unique config key
@@ -16,28 +16,28 @@ agg_df = df.groupby(group_cols).agg(
     result_files = ('result_file', list),
     seeds = ('seed', list)
 ).reset_index()
-print(agg_df.shape, agg_df.head(20))
+print(agg_df.shape, agg_df.sort_values('avg_val_loss_mean').head(20))
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
-# Sort by latent_dim for cleaner plotting
-plot_df = agg_df.sort_values('latent_dim')
+# # Sort by latent_dim for cleaner plotting
+# plot_df = agg_df.sort_values('latent_dim')
 
-plt.figure(figsize=(8, 5))
-plt.errorbar(
-    plot_df['latent_dim'],
-    plot_df['avg_val_loss_mean'],
-    yerr=plot_df['avg_val_loss_std'],
-    capsize=5,
-    label='Validation Loss (mean ± std)'
-)
-plt.xlabel('Latent Dimension')
-plt.ylabel('Validation Loss')
-plt.title('Latent Dimension vs. Validation Loss')
-plt.grid(True)
-plt.legend()
-plt.tight_layout()
-plt.show()
+# plt.figure(figsize=(8, 5))
+# plt.errorbar(
+#     plot_df['latent_dim'],
+#     plot_df['avg_val_loss_mean'],
+#     yerr=plot_df['avg_val_loss_std'],
+#     capsize=5,
+#     label='Validation Loss (mean ± std)'
+# )
+# plt.xlabel('Latent Dimension')
+# plt.ylabel('Validation Loss')
+# plt.title('Latent Dimension vs. Validation Loss')
+# plt.grid(True)
+# plt.legend()
+# plt.tight_layout()
+# plt.show()
 # latent_dim, patience, encoder_layers, decoder_layers, activation, batch_size = agg_df.sort_values('avg_val_loss_mean').iloc[0][group_cols]
 # print("Best config across seeds:")
 # mask = (
