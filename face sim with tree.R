@@ -39,8 +39,10 @@ x_sigma = ar1_cor(p, mm, rho)
 
 # generate sample x from N(0, x_sigma) 
 n2 = 2000  # Increased to 2000 faces
-delta = 0.5  # Much smaller than 20
+delta = 4  # Much smaller than 20
 
+# Set seed for reproducibility
+set.seed(42)
 
 X = (mvrnorm(n2, mu, x_sigma)) 
 
@@ -64,29 +66,29 @@ x.truth2 = 0.2 * (x1 * exp(x101) + x1)
 x.truth3 =  0.5*exp(x1) * x2 + ((x101))
 x.truth4 =  x1^2 * exp(x101) 
 
-# Normalize each truth function to reasonable range (-5 to +5)
-normalize_truth <- function(truth_vec) {
-  truth_scaled <- scale(truth_vec)[,1]  # Z-score normalization
-  truth_scaled * 2.5  # Scale to roughly ±5 range
-}
+# # Normalize each truth function to reasonable range (-5 to +5)
+# normalize_truth <- function(truth_vec) {
+#   truth_scaled <- scale(truth_vec)[,1]  # Z-score normalization
+#   truth_scaled * 2.5  # Scale to roughly ±5 range
+# }
 
-x.truth_norm <- normalize_truth(x.truth)
-x.truth1_norm <- normalize_truth(x.truth1)
-x.truth2_norm <- normalize_truth(x.truth2)
-x.truth3_norm <- normalize_truth(x.truth3)
-x.truth4_norm <- normalize_truth(x.truth4)
+# x.truth_norm <- normalize_truth(x.truth)
+# x.truth1_norm <- normalize_truth(x.truth1)
+# x.truth2_norm <- normalize_truth(x.truth2)
+# x.truth3_norm <- normalize_truth(x.truth3)
+# x.truth4_norm <- normalize_truth(x.truth4)
 
 # Now use normalized versions with delta
-PC1 = pc.pcs[230, 1]
-PC2 = pc.pcs[230, 2]
-PC3 = pc.pcs[230, 3]
-PC4 = pc.pcs[230, 4]
-PC5 = pc.pcs[230, 5]
-PC1.new = PC1 + 2*delta*x.truth_norm + matrix(rnorm(n2,0,1),n2,1)
-PC2.new = PC2 + 1*delta*x.truth1_norm + matrix(rnorm(n2,0,1),n2,1)
-PC3.new = PC3 + 1*delta*x.truth2_norm + matrix(rnorm(n2,0,0),n2,1)
-PC4.new = PC4 + 2*delta*x.truth3_norm + matrix(rnorm(n2,0,1),n2,1)
-PC5.new = PC5 + 1*delta*x.truth4_norm + matrix(rnorm(n2,0,1),n2,1)
+PC1 = pc.pcs[1:n2, 1]
+PC2 = pc.pcs[1:n2, 2]
+PC3 = pc.pcs[1:n2, 3]
+PC4 = pc.pcs[1:n2, 4]
+PC5 = pc.pcs[1:n2, 5]
+PC1.new = PC1 + 2*delta*x.truth + matrix(rnorm(n2,0,1),n2,1)
+PC2.new = PC2 + 1*delta*x.truth1 + matrix(rnorm(n2,0,1),n2,1)
+PC3.new = PC3 + 1*delta*x.truth2 + matrix(rnorm(n2,0,1),n2,1)
+PC4.new = PC4 + 2*delta*x.truth3 + matrix(rnorm(n2,0,1),n2,1)
+PC5.new = PC5 + 1*delta*x.truth4 + matrix(rnorm(n2,0,1),n2,1)
 
 # Create matrix for simulated eigenvalues (2000 faces x 5 PCs)
 simulated.eigenvalues <- matrix(0, nrow = n2, ncol = 5)
@@ -98,11 +100,11 @@ simulated.eigenvalues[,3] <- PC3.new
 simulated.eigenvalues[,4] <- PC4.new
 simulated.eigenvalues[,5] <- PC5.new
 
-# Load existing objects from the RData file
-existing_data <- load("given_data/facesim100000.RData")
+# Save simulated eigenvalues to a separate file to preserve original data
+save(simulated.eigenvalues, file = "given_data/sim_eigvals_2000_d=4.RData")
 
-# Save all objects including the new simulated eigenvalues to the RData file
-save(list = c(existing_data, "simulated.eigenvalues"), file = "given_data/facesim100000.RData")
+# Also save as CSV for easy inspection
+write.csv(simulated.eigenvalues, "given_data/sim_eigvals_2000_d=4.csv", row.names = FALSE)
 
 # PC1.tree = matrix(0, nrow = n2, ncol = 1)
 # PC2.tree = matrix(0, nrow = n2, ncol = 1)

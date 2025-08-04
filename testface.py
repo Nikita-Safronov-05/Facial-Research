@@ -26,7 +26,7 @@ def estimate_gaussian_curvature(mesh):
     return 2 * np.pi - angle_sum
 
 
-folder = 'processed/2000_simfaces_corrected'
+folder = 'processed/2000_diff_simfaces_d=4'  # Adjust folder path as needed
 
 # === Loop over a few simulated faces ===
 for i in range(5, 15):  # Adjust range as needed

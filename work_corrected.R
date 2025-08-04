@@ -5,6 +5,9 @@ library(rgl)
 setwd("C:/Users/safro/VSCODETESTER/facial_research")
 load("given_data/facesim100000.RData")
 
+# Load the simulated eigenvalues from the separate file
+load("given_data/sim_eigvals_2000_d=4.RData")
+
 # CORRECTED VERSION:
 # The issue was confusing eigenvalues with PC scores
 # pc.pcs contains PC SCORES (coefficients), not eigenvalues
@@ -40,10 +43,10 @@ plot_face <- function(face_vector, title = "Simulated Face") {
          main = title)
 }
 
-write.csv(reconstructed_faces, "processed/2000_reconstructed_faces.csv", row.names = FALSE)
+write.csv(reconstructed_faces, "processed/2000_simfaces_d=4.csv", row.names = FALSE)
 
 # Ensure the output directory exists
-output_dir <- "processed/2000_simfaces"
+output_dir <- "processed/2000_simfaces_d=4"
 if (!dir.exists(output_dir)) {
   dir.create(output_dir)
 }
