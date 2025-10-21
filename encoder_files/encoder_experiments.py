@@ -35,7 +35,7 @@ if torch.cuda.is_available():
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 torch.use_deterministic_algorithms(True)
-os.makedirs(f"encoder_data/SEED{seed}/experiments", exist_ok=True)
+os.makedirs(f"encoder_data/Curvature/SEED{seed}/experiments", exist_ok=True)
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
 # ------------------------------
@@ -51,7 +51,7 @@ test_dataset = Subset(full_dataset, test_indices)
 
 print(f"Total: {n_samples}, Train+Val: {len(trainval_dataset)}, Test: {len(test_dataset)}")
 
-with open(f"encoder_data/SEED{seed}/test_indices.pkl", "wb") as f:
+with open(f"encoder_data/Curvature/test_indices.pkl", "wb") as f:
     pickle.dump(test_indices, f)
 
 # ------------------------------
@@ -80,6 +80,10 @@ def train_autoencoder(model, train_loader, val_loader, patience=5, max_epochs=10
     best_val_loss = float("inf")
     patience_counter = 0
     best_epoch = 0
+    
+    # Track training history
+    train_losses = []
+    val_losses = []
 
     for epoch in range(max_epochs):
         model.train()
@@ -101,6 +105,10 @@ def train_autoencoder(model, train_loader, val_loader, patience=5, max_epochs=10
                 loss = criterion(model(x_val), x_val)
                 epoch_val_loss += loss.item() * x_val.size(0)
         epoch_val_loss /= len(val_loader.dataset)
+        
+        # Store losses for this epoch
+        train_losses.append(float(epoch_train_loss))
+        val_losses.append(float(epoch_val_loss))
 
         scheduler.step(epoch_val_loss)
 
@@ -113,7 +121,7 @@ def train_autoencoder(model, train_loader, val_loader, patience=5, max_epochs=10
             if patience_counter >= patience:
                 break
 
-    return best_val_loss, best_epoch
+    return best_val_loss, best_epoch, train_losses, val_losses
 
 # ------------------------------
 # 5. Optimized Single Fold Training Function
@@ -137,23 +145,23 @@ def train_single_fold(fold_config):
         torch.use_deterministic_algorithms(True)
         
         # Ensure directory exists
-        os.makedirs(f"encoder_data/SEED{random_seed}/experiments", exist_ok=True)
+        os.makedirs(f"encoder_data/Curvature/SEED{random_seed}/experiments", exist_ok=True)
         
         train_loader = DataLoader(Subset(dataset, train_idx), batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size, shuffle=False)
 
         model = CurvatureAutoencoder(input_dim, latent_dim, encoder_layers, decoder_layers, activation)
-        best_val_loss, best_epoch = train_autoencoder(
+        best_val_loss, best_epoch, train_losses, val_losses = train_autoencoder(
             model, train_loader, val_loader, patience=patience, max_epochs=max_epochs, learning_rate=learning_rate
         )
         
-        return fold_idx, float(best_val_loss), best_epoch, train_idx.tolist(), val_idx.tolist()
+        return fold_idx, float(best_val_loss), best_epoch, train_idx.tolist(), val_idx.tolist(), train_losses, val_losses
         
     except Exception as e:
         print(f"Error in fold {fold_idx}: {e}")
         import traceback
         traceback.print_exc()
-        return fold_idx, None, None, None, None
+        return fold_idx, None, None, None, None, None, None
 
 # ------------------------------
 # 6. K-Fold Cross-Validation (optimized structure)
@@ -197,13 +205,15 @@ def run_kfold_cv(
                          for config in fold_configs}
         
         for future in as_completed(future_to_fold):
-            fold_idx, best_val_loss, best_epoch, train_indices, val_indices = future.result()
+            fold_idx, best_val_loss, best_epoch, train_indices, val_indices, train_losses, val_losses = future.result()
             if best_val_loss is not None:
                 fold_results[fold_idx] = {
                     'val_loss': best_val_loss,
                     'best_epoch': best_epoch,
                     'train_indices': train_indices,
-                    'val_indices': val_indices
+                    'val_indices': val_indices,
+                    'train_losses': train_losses,
+                    'val_losses': val_losses
                 }
                 print(f"  Fold {fold_idx+1} best val loss: {best_val_loss:.6f}")
     
@@ -211,6 +221,8 @@ def run_kfold_cv(
     final_val_losses = []
     best_epochs = []
     fold_indices = []
+    all_train_losses = []
+    all_val_losses = []
     
     for fold_idx in sorted(fold_results.keys()):
         result = fold_results[fold_idx]
@@ -220,6 +232,8 @@ def run_kfold_cv(
             'train': result['train_indices'],
             'val': result['val_indices']
         })
+        all_train_losses.append(result['train_losses'])
+        all_val_losses.append(result['val_losses'])
 
     arch_repr = get_arch_repr(encoder_layers, decoder_layers, activation)
     results_entry = {
@@ -236,7 +250,9 @@ def run_kfold_cv(
         "avg_best_val_loss": float(np.mean(final_val_losses)),
         "std_best_val_loss": float(np.std(final_val_losses)),
         "best_epochs_per_fold": best_epochs,
-        "avg_best_epoch": float(np.mean(best_epochs))
+        "avg_best_epoch": float(np.mean(best_epochs)),
+        "train_losses_per_fold": all_train_losses,
+        "val_losses_per_fold": all_val_losses,
     }
 
     return results_entry
@@ -244,6 +260,7 @@ def run_kfold_cv(
 # -----------------------------------
 # 7. SEARCH GRID (customize as needed)
 # -----------------------------------
+# 5, 10, 15, 20, 30, 40, 50, 
 latent_dims = [5, 10, 15, 20, 30, 40, 50, 100, 200, 400, 600, 800, 1000, 2000, 3000]  # Latent dimensions to test
 
 # Publication-level patience search: more aggressive to conservative early stopping (streamlined)
@@ -328,7 +345,7 @@ def run_main_grid_search():
                                     decoder_layers=encoder_layers[::-1], #Symmetric decoder,
                                     activation=act_fn,
                                     patience=patience,
-                                    max_epochs=1000,
+                                    max_epochs=200,
                                     learning_rate=learning_rate,
                                     batch_size=batch_size,
                                     k_folds=3,  # Reduced from 5 to 3 for 40% speedup
@@ -342,7 +359,7 @@ def run_main_grid_search():
                                     f"-dec{'-'.join(map(str, encoder_layers[::-1]))}"
                                     f"-act{act_fn.__name__}"
                                 )
-                                filename = os.path.join(f'encoder_data/SEED{exp_seed}/experiments', f"{model_id}.pkl")
+                                filename = os.path.join(f'encoder_data/Curvature/SEED{exp_seed}/experiments', f"{model_id}.pkl")
 
                                 # Write the per-experiment result
                                 with open(filename, "wb") as f:
@@ -368,7 +385,7 @@ def run_main_grid_search():
                                 print(f"Stored experiment {exp_num}: {filename}")
 
     # Save metadata as CSV for easy searching/filtering
-    meta_csv = f"encoder_data/experiment_metadata.csv"  # Use general path since we have multiple seeds
+    meta_csv = f"encoder_data/Curvature/experiment_metadata.csv"  # Use general path since we have multiple seeds
     pd.DataFrame(metadata_list).to_csv(meta_csv, index=False)
     return metadata_list
 

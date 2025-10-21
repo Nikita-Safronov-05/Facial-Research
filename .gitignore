@@ -17,8 +17,10 @@ __pycache__/
 .Ruserdata
 
 # Large data directories
+Unused/
 given_data/
 processed/
+encoder_files/old_encoder_data/
 encoder_files/encoder_data/
 
 # IDE files
@@ -32,3 +34,16 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# CCA outputs and analysis artifacts
+CCA/cca_results/
+
+# Checkpoints / large binary artifacts
+*.pth
+*.pt
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
