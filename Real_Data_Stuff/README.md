@@ -59,7 +59,9 @@ This creates a few OBJ variants in `Face_OBJs/` and a small `face_x_70.csv` with
 
 ## Dependencies
 
-Python 3.10+ recommended with: `numpy`, `pandas`, `scipy`, `trimesh`, `matplotlib`.
+Tested with Python 3.11.9. Python 3.10+ is likely fine, but 3.11.9 is our validated environment.
+
+Required packages: `numpy`, `pandas`, `scipy`, `trimesh`, `matplotlib`.
 Your workspace already uses these; install as needed in your active environment.
 
 ### Reproducibility notes
